@@ -1,31 +1,48 @@
-import express from "express";
-import { engine } from "express-handlebars";
-import path from "path";
-import { fileURLToPath } from "url";
-import shopRoutes from "./routes/shopRoutes.js";
-import cartRoutes from "./routes/cartRoutes.js";
+const express = require("express");
+const bodyParser = require("body-parser");
+const path = require("path");
+const fs = require("fs");
 
 const app = express();
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const PORT = 3000;
 
-app.engine(
-  "hbs",
-  engine({
-    extname: ".hbs",
-    helpers: {
-      multiply: (a, b) => (a * b).toFixed(2),
-    },
-  })
-);
+app.use(bodyParser.urlencoded({ extended: false }));
 app.set("view engine", "hbs");
 app.set("views", path.join(__dirname, "views"));
 
-app.use(express.urlencoded({ extended: true }));
-app.use(express.json());
-app.use(express.static("public"));
+const DATA_FILE = path.join(__dirname, "data.json");
 
-app.use("/shop", shopRoutes);
-app.use("/cart", cartRoutes);
-app.get("/", (req, res) => res.redirect("/shop"));
+app.get("/", (req, res) => {
+  res.render("index");
+});
 
-app.listen(3000, () => console.log("✅ Server running on http://localhost:3000"));
+app.get("/register", (req, res) => {
+  res.render("register");
+});
+
+app.post("/register", (req, res) => {
+  const { name, email, password } = req.body;
+
+  if (!name || !email || !password) {
+    return res.render("register", { error: "All fields are required!" });
+  }
+
+  let users = [];
+  if (fs.existsSync(DATA_FILE)) {
+    const data = fs.readFileSync(DATA_FILE);
+    users = JSON.parse(data);
+  }
+
+  if (users.some(u => u.email === email)) {
+    return res.render("register", { error: "Email already registered!" });
+  }
+
+  users.push({ name, email, password });
+  fs.writeFileSync(DATA_FILE, JSON.stringify(users, null, 2));
+
+  res.render("success", { name });
+});
+
+app.listen(PORT, () => {
+  console.log(`Server running at http://localhost:${PORT}`);
+});
